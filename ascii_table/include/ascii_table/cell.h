@@ -21,6 +21,7 @@
  * SOFTWARE.
  */
 
+#include <sstream>
 #include <string>
 #include <memory>
 
@@ -60,4 +61,19 @@ private:
     std::string stored_;
 };
 
+template<>
+class TypedCell<int> : public Cell {
+public:
+    TypedCell(int value) : value_(value) {}
+    virtual ~TypedCell() {}
 
+    virtual std::string show(std::size_t maxlen) const {
+        std::ostringstream ss;
+        ss << value_;
+        if (ss.str().length() > maxlen)
+            throw CellLengthException(ss.str(), maxlen);
+        return ss.str();
+    }
+private:
+    int value_;
+};
