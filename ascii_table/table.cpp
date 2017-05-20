@@ -59,6 +59,21 @@ struct TableFormat {
     char vsep;
 };
 
+static void print_horizontal_separator(const TableFormat& tf, std::size_t len) {
+    std::cout << std::string(len, tf.vsep);
+    std::cout << tf.corner;
+}
+
+static void print_cell(const TableFormat& tf, std::string value, std::size_t len, bool corner) {
+    std::string t(len, ' ');
+    std::copy(value.begin(), value.end(), t.begin() + 1);
+    std::cout << t;
+    if (corner)
+        std::cout << tf.corner;
+    else
+        std::cout << tf.hsep;
+}
+
 static void print_hline(const TableFormat& tf, const std::vector<std::size_t>& column_lengths) {
     if (column_lengths.empty())
         return;
@@ -96,33 +111,107 @@ void Table::print() const {
     tf.hsep = '|';
     tf.vsep = '-';
 
-    std::vector<std::size_t> lengths;
+    bool need_second_row = false;
+    std::vector<std::size_t> column_lengths;
+    std::vector<std::size_t> subcolumn_lengths;
+    std::size_t cell_index = 0;
     for (std::size_t column_index = 0; column_index != columns_.size(); column_index++) {
-        if (column_widths_[column_index] != -1)
-            lengths.push_back(column_widths_[column_index] + 2);
-        else {
-            std::size_t value = columns_[column_index].getHeader().Name().size() + 2;
-            for (std::size_t row_index = 0; row_index != rows_.size(); row_index++) {
-                value = std::max(value, rows_[row_index][column_index]
-                                 ->show(std::numeric_limits<std::size_t>::max()).size() + 2); 
+        if (columns_[column_index].getHeader().needSecondRow()) {
+            need_second_row = true;
+            std::size_t column_length = 0;
+            for (std::size_t i = 0; i != columns_[column_index].getHeader().subcolumnNumber(); i++) {
+                std::size_t subcolumn_length = columns_[column_index].getHeader()[i].size() + 2;
+                for (std::size_t row_index = 0; row_index != rows_.size(); row_index++) {
+                    subcolumn_length = std::max(subcolumn_length,
+                                                rows_[row_index][cell_index]
+                                                ->show(std::numeric_limits<std::size_t>::max())
+                                                .size() + 2);
+                }
+                column_length += subcolumn_length + 1;
+                subcolumn_lengths.push_back(subcolumn_length);
+                cell_index++;
             }
-            lengths.push_back(value);
+            column_length--;
+            if (column_length < columns_[column_index].getHeader().Name().size() + 2) {
+                subcolumn_lengths.back() += columns_[column_index].getHeader().Name().size() + 2 - column_length;
+                column_length = columns_[column_index].getHeader().Name().size() + 2;
+            }
+            column_lengths.push_back(column_length);
+        } else if (column_widths_[column_index] != -1) {
+            subcolumn_lengths.push_back(column_widths_[column_index]);
+            column_lengths.push_back(column_widths_[column_index]);
+            cell_index++;
+        } else {
+            std::size_t column_length = columns_[column_index].getHeader().Name().size() + 2;
+            for (std::size_t row_index = 0; row_index != rows_.size(); row_index++) {
+                column_length = std::max(column_length,
+                                         rows_[row_index][cell_index]
+                                         ->show(std::numeric_limits<std::size_t>::max())
+                                         .size() + 2);
+            }
+            subcolumn_lengths.push_back(column_length);
+            column_lengths.push_back(column_length);
+            cell_index++;            
         }
     }
 
-    print_hline(tf, lengths);
-    std::vector<std::string> values;
-    for (const Column& column : columns_)
-        values.push_back(column.getHeader().Name());
-    format_and_print_row(tf, values, lengths);
-    values.clear();
-    print_hline(tf, lengths);
-    for (const auto& row : rows_) {
-        for (std::size_t i = 0; i != columns_.size(); i++)
-            values.push_back(row[i]->show(lengths[i]));
-        format_and_print_row(tf, values, lengths);
-        values.clear();
+    if (need_second_row) {
+        print_hline(tf, column_lengths);
+        std::cout << tf.hsep;
+        for (std::size_t column_index = 0; column_index != columns_.size(); column_index++) {
+            if (columns_[column_index].getHeader().needSecondRow()) {
+                print_cell(tf, columns_[column_index].getHeader().Name(), column_lengths[column_index], false);
+            } else {
+                print_cell(tf,"", column_lengths[column_index], false);
+            }
+        }
+        std::cout << std::endl;
+        cell_index = 0;
+        std::cout << tf.hsep;
+        for (std::size_t column_index = 0; column_index != columns_.size(); column_index++) {
+            if (columns_[column_index].getHeader().needSecondRow()) {
+                for (std::size_t i = 0; i != columns_[column_index].getHeader().subcolumnNumber(); i++) {
+                    print_horizontal_separator(tf, subcolumn_lengths[cell_index]);
+                    cell_index++;
+                }
+            } else {
+                print_cell(tf, columns_[column_index].getHeader().Name(), column_lengths[column_index],
+                           !(column_index == columns_.size() - 1
+                             || !columns_[column_index + 1].getHeader().needSecondRow()));
+                cell_index++;
+            }
+        }
+        std::cout << std::endl;
+        cell_index = 0;
+        std::cout << tf.hsep;
+        for (std::size_t column_index = 0; column_index != columns_.size(); column_index++) {
+            if (columns_[column_index].getHeader().needSecondRow()) {
+                for (std::size_t i = 0; i != columns_[column_index].getHeader().subcolumnNumber(); i++) {
+                    print_cell(tf, columns_[column_index].getHeader()[i], subcolumn_lengths[cell_index], false);
+                    cell_index++;
+                }
+            } else {
+                print_cell(tf, "", subcolumn_lengths[cell_index], false);
+                cell_index++;
+            }
+        }
+        std::cout << std::endl;
+    } else {
+        print_hline(tf, subcolumn_lengths);
+        std::vector<std::string> values;
+        for (const Column& column : columns_)
+            values.push_back(column.getHeader().Name());
+        format_and_print_row(tf, values, subcolumn_lengths);
     }
-    print_hline(tf, lengths);
+    
+    print_hline(tf, subcolumn_lengths);
+
+    for (const auto& row : rows_) {
+        std::vector<std::string> values;
+        for (std::size_t i = 0; i != subcolumn_lengths.size(); i++)
+            values.push_back(row[i]->show(subcolumn_lengths[i]));
+        format_and_print_row(tf, values, subcolumn_lengths);
+    }
+    print_hline(tf, subcolumn_lengths);
 }
     

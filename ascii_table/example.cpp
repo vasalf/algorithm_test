@@ -54,15 +54,20 @@ int main() {
     t.addColumn(Column(Column::Header("Fx string", {})), 20);
     t.addColumn(Column(Column::Header("int", {})));
     t.addColumn(Column(Column::Header("double", {})));
-
+    t.addColumn(Column(Column::Header("Double column", {"a", "b"})));
+    
     t.addRow({make_cell<string>("1, 1"),
                 make_cell<string>("1, 2"),
                 make_cell<int>(3),
-                make_cell<double>(0.5)});
+                make_cell<double>(0.5),
+                make_cell<int>(179),
+                make_cell<int>(181)});
     t.addRow({make_cell<string>("2, 1"),
                 make_cell<string>("2, 2"),
                 make_cell<int>(3),
-                make_cell<double>(123)});
+                make_cell<double>(123),
+                make_cell<int>(183),
+                make_cell<int>(185)});
 
     t.print();
 
