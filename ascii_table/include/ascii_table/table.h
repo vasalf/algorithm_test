@@ -30,7 +30,7 @@ class Column;
 
 class Table {
 public:
-    Table(std::size_t width = 80);
+    Table();
     virtual ~Table();
 
     void addColumn(const Column& column, int width = -1);
@@ -41,7 +41,6 @@ public:
     void print() const;
     
 private:
-    std::size_t width_;
     std::vector<int> column_widths_;
     std::vector<Column> columns_;
     std::vector<std::vector<CellPtr>> rows_;

@@ -30,7 +30,7 @@
 #include <string>
 #include <algorithm>
 
-Table::Table(std::size_t width) : width_(width) {}
+Table::Table() {}
 
 Table::~Table() {}
 
@@ -97,15 +97,17 @@ void Table::print() const {
     tf.vsep = '-';
 
     std::vector<std::size_t> lengths;
-    std::size_t left = width_ - 1;
-    for (std::size_t i = 0; i != columns_.size(); i++) {
-        lengths.push_back(std::max(0, column_widths_[i]));
-        left -= lengths.back();
-    }
-    for (std::size_t i = 0; i != columns_.size(); i++) {
-        std::size_t add = left / (lengths.size() - i);
-        lengths[i] += add;
-        left -= add;
+    for (std::size_t column_index = 0; column_index != columns_.size(); column_index++) {
+        if (column_widths_[column_index] != -1)
+            lengths.push_back(column_widths_[column_index] + 2);
+        else {
+            std::size_t value = columns_[column_index].getHeader().Name().size() + 2;
+            for (std::size_t row_index = 0; row_index != rows_.size(); row_index++) {
+                value = std::max(value, rows_[row_index][column_index]
+                                 ->show(std::numeric_limits<std::size_t>::max()).size() + 3); 
+            }
+            lengths.push_back(value);
+        }
     }
 
     print_hline(tf, lengths);

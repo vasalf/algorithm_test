@@ -29,15 +29,18 @@
 using namespace std;
 
 int main() {
-    Table t(41);
+    Table t;
 
     t.addColumn(Column(Column::Header("First column", {})), 20);
     t.addColumn(Column(Column::Header("Second column", {})), 20);
+    t.addColumn(Column(Column::Header("Third column", {})));
 
     t.addRow({make_shared<TypedCell<string>>("1, 1"),
-                make_shared<TypedCell<string>>("1, 2")});
+                make_shared<TypedCell<string>>("1, 2"),
+                make_shared<TypedCell<string>>("1, 3")});
     t.addRow({make_shared<TypedCell<string>>("2, 1"),
-                make_shared<TypedCell<string>>("2, 2")});
+                make_shared<TypedCell<string>>("2, 2"),
+                make_shared<TypedCell<string>>("2, 3")});
 
     t.print();
 
