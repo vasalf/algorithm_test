@@ -21,19 +21,27 @@
  * SOFTWARE.
  */
 
+#include "table.h"
+#include "column.h"
 #include "cell.h"
-
 #include <string>
+#include <vector>
 #include <memory>
-#include <sstream>
 
-CellLengthException::CellLengthException(std::string show, int length) : show_(show), length_(length) {}
+using namespace std;
 
-std::string CellLengthException::message() const {
-    std::ostringstream ss;
-    ss << "length of " << show_ << "is less than " << length_;
-    return ss.str();
+int main() {
+    Table t(41);
+
+    t.addColumn(Column(Column::Header("First column", {})), 20);
+    t.addColumn(Column(Column::Header("Second column", {})), 20);
+
+    t.addRow({make_shared<TypedCell<string>>("1, 1"),
+                make_shared<TypedCell<string>>("1, 2")});
+    t.addRow({make_shared<TypedCell<string>>("2, 1"),
+                make_shared<TypedCell<string>>("2, 2")});
+
+    t.print();
+
+    return 0;
 }
-
-Cell::Cell() {}
-Cell::~Cell() {}

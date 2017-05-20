@@ -35,8 +35,10 @@ private:
 
 class Cell {
 public:
-    virtual std::string show(std::size_t maxlen) const = 0;
+    Cell();
     virtual ~Cell();
+
+    virtual std::string show(std::size_t maxlen) const = 0;
 };
 typedef std::shared_ptr<Cell> CellPtr;
 

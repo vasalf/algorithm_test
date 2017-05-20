@@ -38,9 +38,15 @@ std::size_t Column::Header::subcolumnNumber() const {
     return subcolumn_names_.size();
 }
 
+std::string Column::Header::Name() const {
+    return name_;
+}
+
 const std::string& Column::Header::operator[](std::size_t i) const {
     return subcolumn_names_[i];
 }
+
+Column::Column(const Header& header) : header_(header) {}
 
 Column::~Column() {}
 

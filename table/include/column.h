@@ -40,7 +40,7 @@ class Column {
         std::vector<std::string> subcolumn_names_;
     };
 
-    Column(Header header);
+    Column(const Header& header);
     virtual ~Column();
 
     const Header& getHeader() const;
