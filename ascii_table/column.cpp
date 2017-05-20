@@ -21,19 +21,35 @@
  * SOFTWARE.
  */
 
-#include "cell.h"
+#include "ascii_table/column.h"
 
+#include <vector>
 #include <string>
 #include <memory>
-#include <sstream>
 
-CellLengthException::CellLengthException(std::string show, int length) : show_(show), length_(length) {}
+Column::Header::Header(const std::string& name, const std::vector<std::string>& subcolumn_names) :
+    name_(name), subcolumn_names_(subcolumn_names) {}
 
-std::string CellLengthException::message() const {
-    std::ostringstream ss;
-    ss << "length of " << show_ << "is less than " << length_;
-    return ss.str();
+bool Column::Header::needSecondRow() const {
+    return !subcolumn_names_.empty();
 }
 
-Cell::Cell() {}
-Cell::~Cell() {}
+std::size_t Column::Header::subcolumnNumber() const {
+    return subcolumn_names_.size();
+}
+
+std::string Column::Header::Name() const {
+    return name_;
+}
+
+const std::string& Column::Header::operator[](std::size_t i) const {
+    return subcolumn_names_[i];
+}
+
+Column::Column(const Header& header) : header_(header) {}
+
+Column::~Column() {}
+
+const Column::Header& Column::getHeader() const {
+    return header_;
+}

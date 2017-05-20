@@ -21,27 +21,6 @@
  * SOFTWARE.
  */
 
-#include "table.h"
-#include "column.h"
-#include "cell.h"
-#include <string>
-#include <vector>
-#include <memory>
-
-using namespace std;
-
-int main() {
-    Table t(41);
-
-    t.addColumn(Column(Column::Header("First column", {})), 20);
-    t.addColumn(Column(Column::Header("Second column", {})), 20);
-
-    t.addRow({make_shared<TypedCell<string>>("1, 1"),
-                make_shared<TypedCell<string>>("1, 2")});
-    t.addRow({make_shared<TypedCell<string>>("2, 1"),
-                make_shared<TypedCell<string>>("2, 2")});
-
-    t.print();
-
-    return 0;
-}
+#include <ascii_table/table.h>
+#include <ascii_table/column.h>
+#include <ascii_table/cell.h>

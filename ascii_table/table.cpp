@@ -21,9 +21,9 @@
  * SOFTWARE.
  */
 
-#include "table.h"
-#include "column.h"
-#include "cell.h"
+#include "ascii_table/table.h"
+#include "ascii_table/column.h"
+#include "ascii_table/cell.h"
 
 #include <vector>
 #include <iostream>

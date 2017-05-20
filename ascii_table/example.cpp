@@ -21,35 +21,25 @@
  * SOFTWARE.
  */
 
-#include "column.h"
-
-#include <vector>
+#include <ascii_table/ascii_table.h>
 #include <string>
+#include <vector>
 #include <memory>
 
-Column::Header::Header(const std::string& name, const std::vector<std::string>& subcolumn_names) :
-    name_(name), subcolumn_names_(subcolumn_names) {}
+using namespace std;
 
-bool Column::Header::needSecondRow() const {
-    return !subcolumn_names_.empty();
-}
+int main() {
+    Table t(41);
 
-std::size_t Column::Header::subcolumnNumber() const {
-    return subcolumn_names_.size();
-}
+    t.addColumn(Column(Column::Header("First column", {})), 20);
+    t.addColumn(Column(Column::Header("Second column", {})), 20);
 
-std::string Column::Header::Name() const {
-    return name_;
-}
+    t.addRow({make_shared<TypedCell<string>>("1, 1"),
+                make_shared<TypedCell<string>>("1, 2")});
+    t.addRow({make_shared<TypedCell<string>>("2, 1"),
+                make_shared<TypedCell<string>>("2, 2")});
 
-const std::string& Column::Header::operator[](std::size_t i) const {
-    return subcolumn_names_[i];
-}
+    t.print();
 
-Column::Column(const Header& header) : header_(header) {}
-
-Column::~Column() {}
-
-const Column::Header& Column::getHeader() const {
-    return header_;
+    return 0;
 }
