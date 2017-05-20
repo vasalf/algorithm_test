@@ -104,7 +104,7 @@ void Table::print() const {
             std::size_t value = columns_[column_index].getHeader().Name().size() + 2;
             for (std::size_t row_index = 0; row_index != rows_.size(); row_index++) {
                 value = std::max(value, rows_[row_index][column_index]
-                                 ->show(std::numeric_limits<std::size_t>::max()).size() + 3); 
+                                 ->show(std::numeric_limits<std::size_t>::max()).size() + 2); 
             }
             lengths.push_back(value);
         }

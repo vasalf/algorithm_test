@@ -25,8 +25,27 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <sstream>
 
 using namespace std;
+
+template<>
+class TypedCell<double> : public Cell {
+public:
+    TypedCell(double value) : value_(value) {}
+    virtual ~TypedCell() {}
+
+    virtual string show(size_t maxlen) const {
+        ostringstream ss;
+        ss.precision(3);
+        ss << fixed << value_;
+        if (ss.str().size() > maxlen)
+            throw CellLengthException(ss.str(), maxlen);
+        return ss.str();
+    }
+private:
+    double value_;
+};
 
 int main() {
     Table t;
@@ -34,13 +53,16 @@ int main() {
     t.addColumn(Column(Column::Header("String", {})));
     t.addColumn(Column(Column::Header("Fx string", {})), 20);
     t.addColumn(Column(Column::Header("int", {})));
+    t.addColumn(Column(Column::Header("double", {})));
 
-    t.addRow({make_shared<TypedCell<string>>("1, 1"),
-                make_shared<TypedCell<string>>("1, 2"),
-                make_shared<TypedCell<int>>(3)});
-    t.addRow({make_shared<TypedCell<string>>("2, 1"),
-                make_shared<TypedCell<string>>("2, 2"),
-                make_shared<TypedCell<int>>(3)});
+    t.addRow({make_cell<string>("1, 1"),
+                make_cell<string>("1, 2"),
+                make_cell<int>(3),
+                make_cell<double>(0.5)});
+    t.addRow({make_cell<string>("2, 1"),
+                make_cell<string>("2, 2"),
+                make_cell<int>(3),
+                make_cell<double>(123)});
 
     t.print();
 

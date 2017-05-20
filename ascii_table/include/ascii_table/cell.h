@@ -44,27 +44,9 @@ public:
 typedef std::shared_ptr<Cell> CellPtr;
 
 template<class T>
-class TypedCell {};
-
-template<>
-class TypedCell<std::string> : public Cell {
+class TypedCell : public Cell {
 public:
-    TypedCell(const std::string& stored) : stored_(stored) {}
-    virtual ~TypedCell() {}
-    
-    virtual std::string show(std::size_t maxlen) const {
-        if (stored_.length() > maxlen)
-            throw CellLengthException(stored_, maxlen);
-        return stored_;
-    }
-private:
-    std::string stored_;
-};
-
-template<>
-class TypedCell<int> : public Cell {
-public:
-    TypedCell(int value) : value_(value) {}
+    TypedCell(T value) : value_(value) {}
     virtual ~TypedCell() {}
 
     virtual std::string show(std::size_t maxlen) const {
@@ -75,5 +57,10 @@ public:
         return ss.str();
     }
 private:
-    int value_;
+    T value_;
 };
+
+template<class T, class... Args>
+CellPtr make_cell(Args... args) {
+    return std::make_shared<TypedCell<T>>(args...);
+}
