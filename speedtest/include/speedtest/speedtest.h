@@ -28,20 +28,42 @@
 #include <memory>
 #include <chrono>
 #include <deque>
+#include <string>
 
 namespace speedtest {
 
     struct TestResult {
+        std::string solution_name;
+        std::string test_name;
         std::chrono::nanoseconds exec_time;
         bool exec_result;
     };
 
+    class StatOutputMethod {
+    public:
+        StatOutputMethod() {}
+        virtual ~StatOutputMethod() {}
+
+        virtual void add_test(std::string test_name) = 0;
+        virtual void print(std::deque<TestResult> tr) = 0;
+        virtual void flush() = 0;
+    };
+
+    struct SpeedTestConfig {
+        std::unique_ptr<StatOutputMethod> output;
+    };
+
+    extern SpeedTestConfig st_config;
+    
     template<class Tester, class Solution>
     TestResult run(const Tester& t) {
         Tester tester_copy = t;
         TestResult ret;
 
-        std::cout << "Running solution " << Solution::name() << " on test " << Tester::name() << std::endl;
+        ret.solution_name = Solution::name();
+        ret.test_name = Tester::name();
+        
+        std::cerr << "Running solution " << Solution::name() << " on test " << Tester::name() << std::endl;
         auto t1 = std::chrono::high_resolution_clock::now();
         ret.exec_result = tester_copy.template test<Solution>();
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -63,6 +85,11 @@ namespace speedtest {
             ret.push_front(head);
             return ret;
         }
+
+        void setup() {
+            st_config.output->add_test(T::name());
+            next_.setup();
+        }
         
     private:
         T val_;
@@ -79,6 +106,10 @@ namespace speedtest {
             TestResult ret = speedtest::run<T, Solution>(val_);
             return std::deque<TestResult>({ret});
         }
+
+        void setup() {
+            st_config.output->add_test(T::name());
+        }
         
     private:
         T val_;
@@ -91,9 +122,10 @@ namespace speedtest {
 
     template<class Solution, class TesterList>
     void process_solution(const TesterList& tl) {
-        std::cout << "Processing solution " << Solution::name() << std::endl;
-        tl.template run<Solution>();
-        std::cout << "Finished processing solution " << Solution::name() << std::endl;
+        std::cerr << "Processing solution " << Solution::name() << std::endl;
+        auto res = tl.template run<Solution>();
+        std::cerr << "Finished processing solution " << Solution::name() << std::endl;
+        st_config.output->print(res);
     }
 
     template<class T, class... Others>
@@ -133,6 +165,7 @@ namespace speedtest {
         ~BasicSpeedTest() {}
 
         virtual void run() = 0;
+        virtual void setup() = 0;
     };
 
     template<class StoredTesterList,
@@ -148,6 +181,10 @@ namespace speedtest {
         
         virtual void run() {
             solution_list_.run(tester_list_);
+        }
+
+        virtual void setup() {
+            tester_list_.setup();
         }
         
     private:

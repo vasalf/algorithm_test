@@ -22,11 +22,44 @@
  */
 
 #include <speedtest/speedtest.h>
+#include <sstream>
 
 namespace speedtest {
     std::unique_ptr<BasicSpeedTest> st_instance;
+    SpeedTestConfig st_config;
+    
+    class PlainTextStatOutputMethod : public StatOutputMethod {
+    public:
+        PlainTextStatOutputMethod() {
+            out.precision(9);
+            out << std::fixed;
+        }
+        virtual ~PlainTextStatOutputMethod() {}
 
+        virtual void add_test(std::string) {}
+        virtual void print(std::deque<TestResult> tr) {
+            for (auto& res : tr) {
+                out << "Solution " << res.solution_name;
+                if (res.exec_result)
+                    out << " succeeded ";
+                else
+                    out << " failed ";
+                out << "on test " << res.test_name;
+                out << ". Time: " << (double)res.exec_time.count() / 1e9 << " s";
+                out << std::endl;
+            }
+        }
+        virtual void flush() {
+            std::cout << out.str();
+        }
+    private:
+        std::stringstream out;
+    };
+    
     void run(int argc, char* argv[]) {
+        st_config.output.reset(new PlainTextStatOutputMethod());
+        st_instance->setup();
         st_instance->run();
+        st_config.output->flush();
     }
 };
