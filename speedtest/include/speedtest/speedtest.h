@@ -45,7 +45,7 @@ namespace speedtest {
         virtual ~StatOutputMethod() {}
 
         virtual void add_test(std::string test_name) = 0;
-        virtual void print(std::deque<TestResult> tr) = 0;
+        virtual void print(std::string solution_name, std::deque<TestResult> tr) = 0;
         virtual void flush() = 0;
     };
 
@@ -61,9 +61,9 @@ namespace speedtest {
         TestResult ret;
 
         ret.solution_name = Solution::name();
-        ret.test_name = Tester::name();
+        ret.test_name = tester_copy.name();
         
-        std::cerr << "Running solution " << Solution::name() << " on test " << Tester::name() << std::endl;
+        std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
         auto t1 = std::chrono::high_resolution_clock::now();
         ret.exec_result = tester_copy.template test<Solution>();
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -87,7 +87,7 @@ namespace speedtest {
         }
 
         void setup() {
-            st_config.output->add_test(T::name());
+            st_config.output->add_test(val_.name());
             next_.setup();
         }
         
@@ -108,7 +108,7 @@ namespace speedtest {
         }
 
         void setup() {
-            st_config.output->add_test(T::name());
+            st_config.output->add_test(val_.name());
         }
         
     private:
@@ -125,7 +125,7 @@ namespace speedtest {
         std::cerr << "Processing solution " << Solution::name() << std::endl;
         auto res = tl.template run<Solution>();
         std::cerr << "Finished processing solution " << Solution::name() << std::endl;
-        st_config.output->print(res);
+        st_config.output->print(Solution::name(), res);
     }
 
     template<class T, class... Others>

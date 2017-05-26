@@ -23,6 +23,8 @@
 
 #include <speedtest/speedtest.h>
 
+#include <sstream>
+
 using namespace std;
 
 class DummyTest {
@@ -30,8 +32,10 @@ class DummyTest {
 public:
     DummyTest(int a, int b) : _a(a), _b(b) {}
 
-    static string name() {
-        return "dummy_test";
+    string name() const {
+        std::ostringstream ss;
+        ss << "dummy_test(" << _a << "," << _b << ")";
+        return ss.str();
     }
 
     template<class Solution>
