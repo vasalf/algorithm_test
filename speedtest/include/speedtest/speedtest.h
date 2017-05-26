@@ -50,7 +50,11 @@ namespace speedtest {
     };
 
     struct SpeedTestConfig {
+        enum class OutputMethod { ASCIITable, PlainText };
         std::unique_ptr<StatOutputMethod> output;
+        bool quiet = false;
+        bool print_help = false;
+        OutputMethod output_method = OutputMethod::ASCIITable;
     };
 
     extern SpeedTestConfig st_config;
@@ -62,8 +66,9 @@ namespace speedtest {
 
         ret.solution_name = Solution::name();
         ret.test_name = tester_copy.name();
-        
-        std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
+
+        if (!st_config.quiet)
+            std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
         auto t1 = std::chrono::high_resolution_clock::now();
         ret.exec_result = tester_copy.template test<Solution>();
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -122,9 +127,11 @@ namespace speedtest {
 
     template<class Solution, class TesterList>
     void process_solution(const TesterList& tl) {
-        std::cerr << "Processing solution " << Solution::name() << std::endl;
+        if (!st_config.quiet)
+            std::cerr << "Processing solution " << Solution::name() << std::endl;
         auto res = tl.template run<Solution>();
-        std::cerr << "Finished processing solution " << Solution::name() << std::endl;
+        if (!st_config.quiet)
+            std::cerr << "Finished processing solution " << Solution::name() << std::endl;
         st_config.output->print(Solution::name(), res);
     }
 

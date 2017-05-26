@@ -23,6 +23,7 @@
 
 #include <speedtest/speedtest.h>
 #include <ascii_table/ascii_table.h>
+#include <cstring>
 #include <sstream>
 
 template<>
@@ -99,9 +100,56 @@ namespace speedtest {
     private:
         Table table_;
     };
+
+    void usage(std::string app) {
+        std::string message =
+            "This is a libspeedtest application\n"
+            "\n"
+            "Usage: " + app + " [OPTION]...\n"
+            "\n"
+            "Available options are: \n"
+            "      --quiet                Do not output messages about testing status\n"
+            "                             to stderr\n"
+            "      --plaintext            Do not use ASCII tables, display stats in\n"
+            "                             plain text\n"
+            "  -h  --help                 Display this help message and exit\n"
+            "\n"
+            "Copyright (c) 2017 Vasily Alferov\n"
+            "You may find additional help information on https://github.com/vasalf/algorithm_test";
+        std::cout << message << std::endl;
+    }
+    
+    void parse_opts(int argc, char* argv[]) {
+        for (int i = 1; i < argc; i++) {
+            if (std::strcmp(argv[i], "--quiet") == 0)
+                st_config.quiet = true;
+            else if (std::strcmp(argv[i], "--plaintext") == 0)
+                st_config.output_method = SpeedTestConfig::OutputMethod::PlainText;
+            else if (std::strcmp(argv[i], "--help") == 0
+                     || std::strcmp(argv[i], "-h") == 0)
+                st_config.print_help = true;
+        }
+    }
     
     void run(int argc, char* argv[]) {
-        st_config.output.reset(new ASCIITableStatOutputMethod());
+        parse_opts(argc, argv);
+
+        if (st_config.print_help) {
+            usage(argv[0]);
+            exit(0);
+        }
+        
+        switch (st_config.output_method) {
+        case SpeedTestConfig::OutputMethod::ASCIITable:
+            st_config.output.reset(new ASCIITableStatOutputMethod());
+            break;
+        case SpeedTestConfig::OutputMethod::PlainText:
+            st_config.output.reset(new PlainTextStatOutputMethod());
+            break;
+        default:
+            break;
+        }
+        
         st_instance->setup();
         st_instance->run();
         st_config.output->flush();
