@@ -6,3 +6,6 @@ add_subdirectory(ascii_table)
 
 # Basic library for testing
 add_subdirectory(speedtest)
+
+# Algorithms
+add_subdirectory(aplusb)

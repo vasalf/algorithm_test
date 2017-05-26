@@ -59,7 +59,7 @@ namespace speedtest {
         template<class Solution>
         std::deque<TestResult> run() const {
             TestResult head = speedtest::run<T, Solution>(val_);
-            std::deque<TestResult> ret = next_.run();
+            std::deque<TestResult> ret = next_.template run<Solution>();
             ret.push_front(head);
             return ret;
         }
@@ -160,7 +160,7 @@ namespace speedtest {
     template<class StoredTesterList,
              class StoredSolutionList>
     void init(StoredTesterList&& tl, StoredSolutionList&& sl) {
-        st_instance.reset(new SpeedTest<StoredTesterList, StoredSolutionList>(tl, sl));
+        st_instance.reset(new SpeedTest<StoredTesterList, StoredSolutionList>(std::move(tl), std::move(sl)));
     }
     
     void run(int argc, char* argv[]);
