@@ -3,3 +3,6 @@ project(algorithm_test)
 
 # Library for printing ASCII tables
 add_subdirectory(ascii_table)
+
+# Basic library for testing
+add_subdirectory(speedtest)
