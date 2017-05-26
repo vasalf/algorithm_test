@@ -29,12 +29,14 @@
 #include <chrono>
 #include <deque>
 #include <string>
+#include <type_traits>
 
 namespace speedtest {
 
     struct TestResult {
         std::string solution_name;
         std::string test_name;
+        int num_tests;
         std::chrono::nanoseconds exec_time;
         bool exec_result;
     };
@@ -45,19 +47,68 @@ namespace speedtest {
         virtual ~StatOutputMethod() {}
 
         virtual void add_test(std::string test_name) = 0;
+        virtual void add_multitest(std::string test_name, int test_num) = 0;
         virtual void print(std::string solution_name, std::deque<TestResult> tr) = 0;
         virtual void flush() = 0;
     };
 
+    // Member check idiom
+    // [some black magic from the deep abyss of C++]
+    template<class Tester>
+    class IsMultitest {
+        template<class U, int (U::*)() const> struct Check;
+        template<class U> static char check(Check<U, &U::num_tests> *);
+        template<class U> static int check(...);
+    public:
+        static constexpr bool value = sizeof(check<Tester>(nullptr)) == sizeof(char);
+    };
+
+    template<class Tester>
+    using is_multitest = std::integral_constant<bool, IsMultitest<Tester>::value>;
+    template<class Tester>
+    using is_singletest = std::integral_constant<bool, !IsMultitest<Tester>::value>;
+    
     struct SpeedTestConfig {
         enum class OutputMethod { ASCIITable, PlainText };
         std::unique_ptr<StatOutputMethod> output;
         bool quiet = false;
         bool print_help = false;
         OutputMethod output_method = OutputMethod::ASCIITable;
+        // stackoverflow hacks
+        template<class Tester>
+        typename std::enable_if<is_multitest<Tester>::value, void>::type add_test(const Tester& t) {
+            output->add_multitest(t.name(), t.num_tests());
+        }
+        template<class Tester>
+        typename std::enable_if<is_singletest<Tester>::value, void>::type add_test(const Tester& t) {
+            output->add_test(t.name());
+        }
+        template<class Tester>
+        static typename std::enable_if<is_multitest<Tester>::value, int>::type get_num_tests(const Tester& t) {
+            return t.num_tests();
+        }
+        template<class Tester>
+        static typename std::enable_if<is_singletest<Tester>::value, int>::type get_num_tests(const Tester&) {
+            return -1;
+        }
     };
-
+    
     extern SpeedTestConfig st_config;
+
+    template<class Tester, class Solution>
+    typename std::enable_if<is_multitest<Tester>::value, bool>::type inner_run(Tester& t) {
+        bool ret = true;
+        int rep = t.num_tests();
+        for (int i = 0; i < rep; i++) {
+            ret = ret & t.template test<Solution>();
+        }
+        return ret;
+    }
+
+    template<class Tester, class Solution>
+    typename std::enable_if<is_singletest<Tester>::value, bool>::type inner_run(Tester& t) {
+        return t.template test<Solution>();
+    }
     
     template<class Tester, class Solution>
     TestResult run(const Tester& t) {
@@ -66,14 +117,18 @@ namespace speedtest {
 
         ret.solution_name = Solution::name();
         ret.test_name = tester_copy.name();
+        ret.num_tests = SpeedTestConfig::get_num_tests(tester_copy);
 
         if (!st_config.quiet)
             std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
         auto t1 = std::chrono::high_resolution_clock::now();
-        ret.exec_result = tester_copy.template test<Solution>();
+        ret.exec_result = inner_run<Tester, Solution>(tester_copy);
         auto t2 = std::chrono::high_resolution_clock::now();
         ret.exec_time = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
 
+        if (!ret.exec_result)
+            std::cerr << "Warning: solution " << Solution::name() << " failed on test " << tester_copy.name() << std::endl;
+        
         return ret;
     }
     
@@ -92,7 +147,7 @@ namespace speedtest {
         }
 
         void setup() {
-            st_config.output->add_test(val_.name());
+            st_config.add_test(val_);
             next_.setup();
         }
         
@@ -113,7 +168,7 @@ namespace speedtest {
         }
 
         void setup() {
-            st_config.output->add_test(val_.name());
+            st_config.add_test(val_);
         }
         
     private:

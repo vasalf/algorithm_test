@@ -24,6 +24,7 @@
 #include <speedtest/speedtest.h>
 
 #include <sstream>
+#include <random>
 
 using namespace std;
 
@@ -46,6 +47,31 @@ public:
     }
 };
 
+class DummyMultiTest {
+    int seed_, count_;
+    mt19937 rnd;
+public:
+    DummyMultiTest(int seed, int count) : rnd(seed), seed_(seed), count_(count) {}
+
+    string name() const {
+        std::ostringstream ss;
+        ss << "dummy_multitest(" << seed_ << "," << count_ << ")";
+        return ss.str();
+    }
+
+    int num_tests() const {
+        return count_;
+    }
+    
+    template<class Solution>
+    bool test() {
+        Solution s;
+        int a = rnd(), b = rnd();
+        int x = s.solve(a, b);
+        return x == a + b;
+    }
+};
+
 class TheSolution {
 public:
     TheSolution() {}
@@ -61,7 +87,9 @@ public:
 
 int main(int argc, char *argv[]) {
     speedtest::init(speedtest::testers(DummyTest(1, 2),
-                                       DummyTest(3, 4)),
+                                       DummyTest(3, 4),
+                                       DummyMultiTest(179, 1000),
+                                       DummyMultiTest(179, 1)),
                     speedtest::solutions<
                     TheSolution,
                     TheSolution

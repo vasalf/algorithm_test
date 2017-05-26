@@ -34,8 +34,8 @@ public:
 
     virtual std::string show(std::size_t maxlen) const {
         std::ostringstream ss;
-        ss.precision(9);
-        ss << std::fixed << value_;
+        ss.precision(3);
+        ss << std::fixed << value_ << " s";
         if (ss.str().length() > maxlen)
             throw CellLengthException(ss.str(), maxlen);
         return ss.str();
@@ -57,6 +57,7 @@ namespace speedtest {
         virtual ~PlainTextStatOutputMethod() {}
 
         virtual void add_test(std::string) {}
+        virtual void add_multitest(std::string, int) {}
         virtual void print(std::string, std::deque<TestResult> tr) {
             for (auto& res : tr) {
                 out << "Solution " << res.solution_name;
@@ -66,6 +67,8 @@ namespace speedtest {
                     out << " failed ";
                 out << "on test " << res.test_name;
                 out << ". Time: " << (double)res.exec_time.count() / 1e9 << " s";
+                if (res.num_tests > 1)
+                    out << " (avg: " << (double)res.exec_time.count() / res.num_tests / 1e9 << " s)";
                 out << std::endl;
             }
         }
@@ -86,11 +89,20 @@ namespace speedtest {
         virtual void add_test(std::string test_name) {
             table_.addColumn(Column(Column::Header(test_name, {})));
         }
+        virtual void add_multitest(std::string test_name, int num_tests) {
+            if (num_tests == 1)
+                add_test(test_name);
+            else {
+                table_.addColumn(Column(Column::Header(test_name, {"total", "avg"})));
+            }
+        }
         virtual void print(std::string solution_name, std::deque<TestResult> tr) {
             std::vector<CellPtr> table_row;
             table_row.push_back(make_cell<std::string>(solution_name));
             for (auto& res : tr) {
                 table_row.push_back(make_cell<double>((double)res.exec_time.count() / 1e9));
+                if (res.num_tests != -1)
+                    table_row.push_back(make_cell<double>((double)res.exec_time.count() / res.num_tests / 1e9));
             }
             table_.addRow(table_row);
         }
