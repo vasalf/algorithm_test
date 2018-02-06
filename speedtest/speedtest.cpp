@@ -1,6 +1,6 @@
 // -*- mode: c++; -*-
 /*
- * Copyright (c) 2017 Vasily Alferov
+ * Copyright (c) 2017-2018 Vasily Alferov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -58,19 +58,30 @@ namespace speedtest {
 
         virtual void add_test(std::string) {}
         virtual void add_multitest(std::string, int) {}
-        virtual void print(std::string, std::deque<TestResult> tr) {
+        virtual void print(std::string, std::deque<TestResultPtr> tr) {
             for (auto& res : tr) {
-                out << "Solution " << res.solution_name;
-                if (res.exec_result)
-                    out << " succeeded ";
-                else
-                    out << " failed ";
-                out << "on test " << res.test_name;
-                out << ". Time: " << (double)res.exec_time.count() / 1e9 << " s";
-                if (res.num_tests > 1)
-                    out << " (avg: " << (double)res.exec_time.count() / res.num_tests / 1e9 << " s)";
-                out << std::endl;
+                res->print_test(*this);
             }
+        }
+        virtual void print_multitest_result(const MultitestResult& result) {
+            out << "Solution " << result.solution_name;
+            if (result.exec_result)
+                out << " succeeded ";
+            else
+                out << " failed ";
+            out << "on test " << result.test_name;
+            out << ". Time: " << (double)result.exec_time.count() / 1e9 << " s";
+            out << " (avg: " << (double) result.exec_time.count() / result.test_num / 1e9 << " s)";
+            out << std::endl;
+        }
+        virtual void print_single_test_result(const SingleTestResult& result) {
+            out << "Solution " << result.solution_name;
+            if (result.exec_result)
+                out << " succeeded ";
+            else
+                out << " failed ";
+            out << "on test " << result.test_name;
+            out << ". Time: " << (double)result.exec_time.count() / 1e9 << " s" << std::endl;
         }
         virtual void flush() {
             std::cout << out.str();
@@ -96,15 +107,30 @@ namespace speedtest {
                 table_.addColumn(Column(Column::Header(test_name, {"total", "avg"})));
             }
         }
-        virtual void print(std::string solution_name, std::deque<TestResult> tr) {
-            std::vector<CellPtr> table_row;
+        std::vector<CellPtr> table_row;
+        virtual void print(std::string solution_name, std::deque<TestResultPtr> tr) {
+            table_row.clear();
             table_row.push_back(make_cell<std::string>(solution_name));
             for (auto& res : tr) {
-                table_row.push_back(make_cell<double>((double)res.exec_time.count() / 1e9));
-                if (res.num_tests != -1)
-                    table_row.push_back(make_cell<double>((double)res.exec_time.count() / res.num_tests / 1e9));
+                res->print_test(*this);
             }
             table_.addRow(table_row);
+        }
+        virtual void print_multitest_result(const MultitestResult& result) {
+            if (result.exec_result) {
+                table_row.push_back(make_cell<double>((double) result.exec_time.count() / 1e9));
+                table_row.push_back(make_cell<double>((double) result.exec_time.count() / result.test_num / 1e9));
+            } else {
+                table_row.push_back(make_cell<std::string>("FAIL"));
+                table_row.push_back(make_cell<std::string>("FAIL"));
+            }
+        }
+        virtual void print_single_test_result(const SingleTestResult& result) {
+            if (result.exec_result) {
+                table_row.push_back(make_cell<double>((double) result.exec_time.count() / 1e9));
+            } else {
+                table_row.push_back(make_cell<std::string>("FAIL"));
+            }
         }
         virtual void flush() {
             table_.print();
@@ -126,7 +152,7 @@ namespace speedtest {
             "                             plain text\n"
             "  -h  --help                 Display this help message and exit\n"
             "\n"
-            "Copyright (c) 2017 Vasily Alferov\n"
+            "Copyright (c) 2017-2018 Vasily Alferov\n"
             "You may find additional help information on https://github.com/vasalf/algorithm_test";
         std::cout << message << std::endl;
     }
@@ -165,5 +191,13 @@ namespace speedtest {
         st_instance->setup();
         st_instance->run();
         st_config.output->flush();
+    }
+
+    void SingleTestResult::print_test(StatOutputMethod &stat_output) {
+        stat_output.print_single_test_result(*this);
+    }
+
+    void MultitestResult::print_test(StatOutputMethod &stat_output) {
+        stat_output.print_multitest_result(*this);
     }
 };

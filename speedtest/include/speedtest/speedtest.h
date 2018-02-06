@@ -1,6 +1,6 @@
 // -*- mode: c++; -*-
 /*
- * Copyright (c) 2017 Vasily Alferov
+ * Copyright (c) 2017-2018 Vasily Alferov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,14 +32,40 @@
 #include <type_traits>
 
 namespace speedtest {
+    class StatOutputMethod;
 
-    struct TestResult {
+    struct BasicTestResult {
         std::string solution_name;
         std::string test_name;
-        int num_tests;
-        std::chrono::nanoseconds exec_time;
         bool exec_result;
+        virtual void print_test(StatOutputMethod& statOutputMethod) = 0;
     };
+
+    struct SingleTestResult : public BasicTestResult {
+        std::chrono::nanoseconds exec_time;
+
+        SingleTestResult(bool result, std::chrono::nanoseconds time_elapsed) {
+            exec_result = result;
+            exec_time = time_elapsed;
+        }
+
+        virtual void print_test(StatOutputMethod& stat_output);
+    };
+
+    struct MultitestResult : public BasicTestResult {
+        int test_num;
+        std::chrono::nanoseconds exec_time;
+
+        MultitestResult(bool result, std::chrono::nanoseconds time_elapsed, int num_tests) {
+            exec_result = result;
+            exec_time = time_elapsed;
+            test_num = num_tests;
+        }
+
+        virtual void print_test(StatOutputMethod& stat_output);
+    };
+
+    typedef std::shared_ptr<BasicTestResult> TestResultPtr;
 
     class StatOutputMethod {
     public:
@@ -48,8 +74,10 @@ namespace speedtest {
 
         virtual void add_test(std::string test_name) = 0;
         virtual void add_multitest(std::string test_name, int test_num) = 0;
-        virtual void print(std::string solution_name, std::deque<TestResult> tr) = 0;
+        virtual void print(std::string solution_name, std::deque<TestResultPtr> tr) = 0;
         virtual void flush() = 0;
+        virtual void print_multitest_result(const MultitestResult& result) = 0;
+        virtual void print_single_test_result(const SingleTestResult& result) = 0;
     };
 
     // Member check idiom
@@ -96,37 +124,40 @@ namespace speedtest {
     extern SpeedTestConfig st_config;
 
     template<class Tester, class Solution>
-    typename std::enable_if<is_multitest<Tester>::value, bool>::type inner_run(Tester& t) {
+    typename std::enable_if<is_multitest<Tester>::value, TestResultPtr>::type inner_run(Tester& t) {
         bool ret = true;
         int rep = t.num_tests();
+
+        auto t1 = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < rep; i++) {
             ret = ret & t.template test<Solution>();
         }
-        return ret;
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        return std::make_shared<MultitestResult>(ret, t2 - t1, rep);
     }
 
     template<class Tester, class Solution>
-    typename std::enable_if<is_singletest<Tester>::value, bool>::type inner_run(Tester& t) {
-        return t.template test<Solution>();
+    typename std::enable_if<is_singletest<Tester>::value, TestResultPtr>::type inner_run(Tester& t) {
+        auto t1 = std::chrono::high_resolution_clock::now();
+        bool result = t.template test<Solution>();
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        return std::make_shared<SingleTestResult>(result, t2 - t1);
     }
-    
+
     template<class Tester, class Solution>
-    TestResult run(const Tester& t) {
+    TestResultPtr run(const Tester& t) {
         Tester tester_copy = t;
-        TestResult ret;
-
-        ret.solution_name = Solution::name();
-        ret.test_name = tester_copy.name();
-        ret.num_tests = SpeedTestConfig::get_num_tests(tester_copy);
 
         if (!st_config.quiet)
             std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
-        auto t1 = std::chrono::high_resolution_clock::now();
-        ret.exec_result = inner_run<Tester, Solution>(tester_copy);
-        auto t2 = std::chrono::high_resolution_clock::now();
-        ret.exec_time = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+        TestResultPtr ret = inner_run<Tester, Solution>(tester_copy);
 
-        if (!ret.exec_result)
+        ret->solution_name = Solution::name();
+        ret->test_name = tester_copy.name();
+
+        if (!ret->exec_result)
             std::cerr << "Warning: solution " << Solution::name() << " failed on test " << tester_copy.name() << std::endl;
         
         return ret;
@@ -139,9 +170,9 @@ namespace speedtest {
                                                  next_(others...) {}
 
         template<class Solution>
-        std::deque<TestResult> run() const {
-            TestResult head = speedtest::run<T, Solution>(val_);
-            std::deque<TestResult> ret = next_.template run<Solution>();
+        std::deque<TestResultPtr> run() const {
+            TestResultPtr head = speedtest::run<T, Solution>(val_);
+            std::deque<TestResultPtr> ret = next_.template run<Solution>();
             ret.push_front(head);
             return ret;
         }
@@ -162,9 +193,9 @@ namespace speedtest {
         TesterList(T tester) : val_(std::move(tester)) {}
 
         template<class Solution>
-        std::deque<TestResult> run() const {
-            TestResult ret = speedtest::run<T, Solution>(val_);
-            return std::deque<TestResult>({ret});
+        std::deque<TestResultPtr> run() const {
+            TestResultPtr ret = speedtest::run<T, Solution>(val_);
+            return std::deque<TestResultPtr>({ret});
         }
 
         void setup() {
