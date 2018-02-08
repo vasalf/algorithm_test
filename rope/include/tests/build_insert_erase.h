@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+#include <speedtest/runtime.h>
+
 #include <random>
 #include <limits>
 #include <algorithm>
@@ -49,7 +51,11 @@ public:
     }
 
     std::string name() const {
-        return "bld_ins_er";
+        return "build_insert_erase";
+    }
+
+    std::vector<std::string> tested_params() const {
+        return { "build", "insert", "erase" };
     }
 
     template<class Solution>
@@ -60,7 +66,7 @@ public:
         
         for (int i = 0; i < n_; i++) {
             int x = dist_(rnd_);
-            s.insert(i, x);
+            MULTIPARAMTEST_INVOKE("build", s.insert(i, x);)
         }
         
         int cnt = n_;
@@ -73,11 +79,11 @@ public:
             if (type == 1) {
                 int at = rnd_() % (cnt + 1);
                 int x = dist_(rnd_);
-                s.insert(at, x);
+                MULTIPARAMTEST_INVOKE("insert", s.insert(at, x);)
                 cnt++;
             } else {
                 int at = rnd_() % cnt;
-                s.erase(at);
+                MULTIPARAMTEST_INVOKE("erase", s.erase(at);)
                 cnt--;
             }
         }

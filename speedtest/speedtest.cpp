@@ -22,6 +22,7 @@
  */
 
 #include <speedtest/speedtest.h>
+#include <speedtest/runtime.h>
 #include <ascii_table/ascii_table.h>
 #include <cstring>
 #include <sstream>
@@ -46,6 +47,7 @@ private:
 
 namespace speedtest {
     std::unique_ptr<BasicSpeedTest> st_instance;
+    std::shared_ptr<MultiparamTestResult> currentMultiparamInvocation;
     SpeedTestConfig st_config;
     
     class PlainTextStatOutputMethod : public StatOutputMethod {
@@ -57,13 +59,16 @@ namespace speedtest {
         virtual ~PlainTextStatOutputMethod() {}
 
         virtual void add_test(std::string) {}
+        virtual void add_multiparam_test(std::string test_name, std::vector<std::string> params) {
+            param_map_[test_name] = params;
+        }
         virtual void add_multitest(std::string, int) {}
         virtual void print(std::string, std::deque<TestResultPtr> tr) {
             for (auto& res : tr) {
                 res->print_test(*this);
             }
         }
-        virtual void print_multitest_result(const MultitestResult& result) {
+        virtual void print_multitest_result(MultitestResult result) {
             out << "Solution " << result.solution_name;
             if (result.exec_result)
                 out << " succeeded ";
@@ -74,7 +79,22 @@ namespace speedtest {
             out << " (avg: " << (double) result.exec_time.count() / result.test_num / 1e9 << " s)";
             out << std::endl;
         }
-        virtual void print_single_test_result(const SingleTestResult& result) {
+        virtual void print_multiparam_test_result(MultiparamTestResult result) {
+            out << "Solution " << result.solution_name;
+            if (result.exec_result)
+                out << " succeeded ";
+            else
+                out << " failed ";
+            out << "on test " << result.test_name;
+            out << ". Measured time: ";
+            for (std::string param : param_map_[result.test_name]) {
+                out << param << ": " << result.exec_time[param].count() / 1e9 << " s";
+                if (param != param_map_[result.test_name][param_map_.size() - 1])
+                    out << ", ";
+            }
+            out << "." << std::endl;
+        }
+        virtual void print_single_test_result(SingleTestResult result) {
             out << "Solution " << result.solution_name;
             if (result.exec_result)
                 out << " succeeded ";
@@ -88,6 +108,7 @@ namespace speedtest {
         }
     private:
         std::ostringstream out;
+        std::map<std::string, std::vector<std::string> > param_map_;
     };
     
     class ASCIITableStatOutputMethod : public StatOutputMethod {
@@ -99,6 +120,10 @@ namespace speedtest {
 
         virtual void add_test(std::string test_name) {
             table_.addColumn(Column(Column::Header(test_name, {})));
+        }
+        virtual void add_multiparam_test(std::string test_name, std::vector<std::string> params) {
+            param_map_[test_name] = params;
+            table_.addColumn(Column(Column::Header(test_name, params)));
         }
         virtual void add_multitest(std::string test_name, int num_tests) {
             if (num_tests == 1)
@@ -116,7 +141,7 @@ namespace speedtest {
             }
             table_.addRow(table_row);
         }
-        virtual void print_multitest_result(const MultitestResult& result) {
+        virtual void print_multitest_result(MultitestResult result) {
             if (result.exec_result) {
                 table_row.push_back(make_cell<double>((double) result.exec_time.count() / 1e9));
                 table_row.push_back(make_cell<double>((double) result.exec_time.count() / result.test_num / 1e9));
@@ -125,7 +150,16 @@ namespace speedtest {
                 table_row.push_back(make_cell<std::string>("FAIL"));
             }
         }
-        virtual void print_single_test_result(const SingleTestResult& result) {
+        virtual void print_multiparam_test_result(MultiparamTestResult result) {
+            for (auto param : param_map_[result.test_name]) {
+                if (result.exec_result) {
+                    table_row.push_back(make_cell<double>((double) result.exec_time[param].count() / 1e9));
+                } else {
+                    table_row.push_back(make_cell<std::string>("FAIL"));
+                }
+            }
+        }
+        virtual void print_single_test_result(SingleTestResult result) {
             if (result.exec_result) {
                 table_row.push_back(make_cell<double>((double) result.exec_time.count() / 1e9));
             } else {
@@ -137,6 +171,7 @@ namespace speedtest {
         }
     private:
         Table table_;
+        std::map<std::string, std::vector<std::string> > param_map_;
     };
 
     void usage(std::string app) {
@@ -199,5 +234,9 @@ namespace speedtest {
 
     void MultitestResult::print_test(StatOutputMethod &stat_output) {
         stat_output.print_multitest_result(*this);
+    }
+
+    void MultiparamTestResult::print_test(StatOutputMethod &stat_output) {
+        stat_output.print_multiparam_test_result(*this);
     }
 };

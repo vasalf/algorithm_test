@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+#include <speedtest/runtime.h>
+
 #include <random>
 #include <limits>
 
@@ -47,6 +49,10 @@ public:
         return "ins_er";
     }
 
+    std::vector<std::string> tested_params() const {
+        return { "insert", "erase" };
+    }
+
     template<class Solution>
     bool test() {
         rnd_ = std::mt19937(seed_);
@@ -63,11 +69,11 @@ public:
             if (type == 1) {
                 int at = rnd_() % (cnt + 1);
                 int x = dist_(rnd_);
-                s.insert(at, x);
+                MULTIPARAMTEST_INVOKE("insert", s.insert(at, x);)
                 cnt++;
             } else {
                 int at = rnd_() % cnt;
-                s.erase(at);
+                MULTIPARAMTEST_INVOKE("erase", s.erase(at);)
                 cnt--;
             }
         }

@@ -21,7 +21,8 @@
  * SOFTWARE.
  */
 
-#pragma once
+#ifndef SPEEDTEST_H_
+#define SPEEDTEST_H_
 
 #include <iostream>
 #include <utility>
@@ -30,6 +31,8 @@
 #include <deque>
 #include <string>
 #include <type_traits>
+#include <map>
+#include <vector>
 
 namespace speedtest {
     class StatOutputMethod;
@@ -65,6 +68,16 @@ namespace speedtest {
         virtual void print_test(StatOutputMethod& stat_output);
     };
 
+    struct MultiparamTestResult : public BasicTestResult {
+        std::map<std::string, std::chrono::nanoseconds> exec_time;
+
+        MultiparamTestResult() {}
+
+        virtual void print_test(StatOutputMethod& stat_output);
+    };
+
+    extern std::shared_ptr<MultiparamTestResult> currentMultiparamInvocation;
+
     typedef std::shared_ptr<BasicTestResult> TestResultPtr;
 
     class StatOutputMethod {
@@ -73,11 +86,13 @@ namespace speedtest {
         virtual ~StatOutputMethod() {}
 
         virtual void add_test(std::string test_name) = 0;
+        virtual void add_multiparam_test(std::string test_name, std::vector<std::string> params) = 0;
         virtual void add_multitest(std::string test_name, int test_num) = 0;
         virtual void print(std::string solution_name, std::deque<TestResultPtr> tr) = 0;
         virtual void flush() = 0;
-        virtual void print_multitest_result(const MultitestResult& result) = 0;
-        virtual void print_single_test_result(const SingleTestResult& result) = 0;
+        virtual void print_multitest_result(MultitestResult result) = 0;
+        virtual void print_multiparam_test_result(MultiparamTestResult result) = 0;
+        virtual void print_single_test_result(SingleTestResult result) = 0;
     };
 
     // Member check idiom
@@ -91,11 +106,31 @@ namespace speedtest {
         static constexpr bool value = sizeof(check<Tester>(nullptr)) == sizeof(char);
     };
 
+    // This is member check idiom, too
+    template<class Tester>
+    class IsMultiparamTest {
+        template<class U, std::vector<std::string> (U::*)() const> struct Check;
+        template<class U> static char check(Check<U, &U::tested_params> *);
+        template<class U> static int check(...);
+    public:
+        static constexpr bool value = sizeof(check<Tester>(nullptr)) == sizeof(char);
+    };
+
     template<class Tester>
     using is_multitest = std::integral_constant<bool, IsMultitest<Tester>::value>;
     template<class Tester>
-    using is_singletest = std::integral_constant<bool, !IsMultitest<Tester>::value>;
-    
+    using is_multiparam_test = std::integral_constant<bool, IsMultiparamTest<Tester>::value>;
+    template<class Tester>
+    using is_singletest = std::integral_constant<bool, !IsMultitest<Tester>::value && !IsMultiparamTest<Tester>::value>;
+
+    // Assuring that the test has the only single type
+    template<class Tester>
+    struct TestAssertion {
+        static_assert((int)is_multitest<Tester>::value
+                    + (int)is_multiparam_test<Tester>::value
+                    + (int)is_singletest<Tester>::value == 1);
+    };
+
     struct SpeedTestConfig {
         enum class OutputMethod { ASCIITable, PlainText };
         std::unique_ptr<StatOutputMethod> output;
@@ -106,6 +141,10 @@ namespace speedtest {
         template<class Tester>
         typename std::enable_if<is_multitest<Tester>::value, void>::type add_test(const Tester& t) {
             output->add_multitest(t.name(), t.num_tests());
+        }
+        template<class Tester>
+        typename std::enable_if<is_multiparam_test<Tester>::value, void>::type add_test(const Tester& t) {
+            output->add_multiparam_test(t.name(), t.tested_params());
         }
         template<class Tester>
         typename std::enable_if<is_singletest<Tester>::value, void>::type add_test(const Tester& t) {
@@ -138,6 +177,15 @@ namespace speedtest {
     }
 
     template<class Tester, class Solution>
+    typename std::enable_if<is_multiparam_test<Tester>::value, TestResultPtr>::type inner_run(Tester& t) {
+        currentMultiparamInvocation = std::make_shared<MultiparamTestResult>();
+        currentMultiparamInvocation->exec_result = t.template test<Solution>();
+        auto ret = currentMultiparamInvocation;
+        currentMultiparamInvocation = nullptr;
+        return ret;
+    };
+
+    template<class Tester, class Solution>
     typename std::enable_if<is_singletest<Tester>::value, TestResultPtr>::type inner_run(Tester& t) {
         auto t1 = std::chrono::high_resolution_clock::now();
         bool result = t.template test<Solution>();
@@ -149,6 +197,7 @@ namespace speedtest {
     template<class Tester, class Solution>
     TestResultPtr run(const Tester& t) {
         Tester tester_copy = t;
+        TestAssertion<Tester> testAssertion;
 
         if (!st_config.quiet)
             std::cerr << "Running solution " << Solution::name() << " on test " << tester_copy.name() << std::endl;
@@ -291,7 +340,10 @@ namespace speedtest {
              class StoredSolutionList>
     void init(StoredTesterList&& tl, StoredSolutionList&& sl) {
         st_instance.reset(new SpeedTest<StoredTesterList, StoredSolutionList>(std::move(tl), std::move(sl)));
+        currentMultiparamInvocation = nullptr;
     }
     
     void run(int argc, char* argv[]);
 };
+
+#endif
