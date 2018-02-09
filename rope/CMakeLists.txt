@@ -5,7 +5,7 @@ add_executable (rope
         include/tests/build_insert_erase.h
         include/tests/build_long_struct.h
         include/tests/build_shuffle.h
-        include/tests/insert_erase.h include/solutions/verify.h include/solutions/avl.h)
+        include/tests/insert_erase.h include/solutions/verify.h include/solutions/avl.h include/solutions/empty.h)
 target_include_directories (rope PUBLIC
   ../speedtest/include
   include)

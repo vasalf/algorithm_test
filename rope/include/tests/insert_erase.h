@@ -46,7 +46,7 @@ public:
     }
 
     std::string name() const {
-        return "ins_er";
+        return "insert_erase";
     }
 
     std::vector<std::string> tested_params() const {

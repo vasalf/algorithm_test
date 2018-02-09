@@ -26,6 +26,7 @@
 #include <ascii_table/ascii_table.h>
 #include <cstring>
 #include <sstream>
+#include <algorithm>
 
 template<>
 class TypedCell<double> : public Cell {
@@ -232,11 +233,46 @@ namespace speedtest {
         stat_output.print_single_test_result(*this);
     }
 
+    void SingleTestResult::remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d) {
+        if (d.get() != nullptr) {
+            std::shared_ptr<SingleTestResult> str = std::dynamic_pointer_cast<SingleTestResult, BasicTestResult>(d);
+            exec_time -= str->exec_time;
+            exec_time = std::max(std::chrono::nanoseconds(0), exec_time);
+        }
+    }
+
     void MultitestResult::print_test(StatOutputMethod &stat_output) {
         stat_output.print_multitest_result(*this);
     }
 
+    void MultitestResult::remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d) {
+        if (d.get() != nullptr) {
+            std::shared_ptr<MultitestResult> str = std::dynamic_pointer_cast<MultitestResult, BasicTestResult>(d);
+            exec_time -= str->exec_time;
+            exec_time = std::max(std::chrono::nanoseconds(0), exec_time);
+        }
+    }
+
     void MultiparamTestResult::print_test(StatOutputMethod &stat_output) {
         stat_output.print_multiparam_test_result(*this);
+    }
+
+    void MultiparamTestResult::remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d) {
+        if (d.get() != nullptr) {
+            std::shared_ptr<MultiparamTestResult> str = std::dynamic_pointer_cast<MultiparamTestResult,
+                                                                                  BasicTestResult      >(d);
+            std::vector<std::string> all_params;
+            for (auto p : exec_time)
+                all_params.push_back(p.first);
+            for (auto p : exec_time)
+                all_params.push_back(p.first);
+            std::sort(all_params.begin(), all_params.end());
+            all_params.resize(std::unique(all_params.begin(), all_params.end()) - all_params.begin());
+
+            for (auto param : all_params) {
+                exec_time[param] -= str->exec_time[param];
+                exec_time[param] = std::max(std::chrono::nanoseconds(0), exec_time[param]);
+            }
+        }
     }
 };

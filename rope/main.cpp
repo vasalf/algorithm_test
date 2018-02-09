@@ -58,6 +58,7 @@
 #include <tests/insert_erase.h>
 #include <tests/build_insert_erase.h>
 
+#include <solutions/empty.h>
 #include <solutions/treap.h>
 #include <solutions/splay.h>
 #include <solutions/avl.h>
@@ -78,7 +79,8 @@ int main(int argc, char *argv[]) {
                             nr_treap<std::mt19937>,
                             splay_tree,
                             avl_tree
-                    >());
+                    >(),
+                    speedtest::empty_solution<empty>());
 
     speedtest::run(argc, argv);
     return 0;

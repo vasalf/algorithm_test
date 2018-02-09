@@ -42,6 +42,12 @@ namespace speedtest {
         std::string test_name;
         bool exec_result;
         virtual void print_test(StatOutputMethod& statOutputMethod) = 0;
+
+        // An accurate solution would be to use even more SFINAE there with no dynamic casts. For example, we could
+        // create separate run functions for different test types with different return types and different storages
+        // in TesterList for different tester types. But the code would be complicated enough and we can be sure that
+        // dynamic casts wouldn't be broken here, so exactly this solution is used there.
+        virtual void remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d) = 0;
     };
 
     struct SingleTestResult : public BasicTestResult {
@@ -53,6 +59,7 @@ namespace speedtest {
         }
 
         virtual void print_test(StatOutputMethod& stat_output);
+        virtual void remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d);
     };
 
     struct MultitestResult : public BasicTestResult {
@@ -66,6 +73,7 @@ namespace speedtest {
         }
 
         virtual void print_test(StatOutputMethod& stat_output);
+        virtual void remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d);
     };
 
     struct MultiparamTestResult : public BasicTestResult {
@@ -74,6 +82,7 @@ namespace speedtest {
         MultiparamTestResult() {}
 
         virtual void print_test(StatOutputMethod& stat_output);
+        virtual void remove_empty_solution_difference(const std::shared_ptr<BasicTestResult> &d);
     };
 
     extern std::shared_ptr<MultiparamTestResult> currentMultiparamInvocation;
@@ -221,6 +230,7 @@ namespace speedtest {
         template<class Solution>
         std::deque<TestResultPtr> run() const {
             TestResultPtr head = speedtest::run<T, Solution>(val_);
+            head->remove_empty_solution_difference(emptySolutionResult);
             std::deque<TestResultPtr> ret = next_.template run<Solution>();
             ret.push_front(head);
             return ret;
@@ -230,9 +240,16 @@ namespace speedtest {
             st_config.add_test(val_);
             next_.setup();
         }
+
+        template<class EmptySolution>
+        void run_empty() {
+            emptySolutionResult = speedtest::run<T, EmptySolution>(val_);
+            next_.template run_empty<EmptySolution>();
+        }
         
     private:
         T val_;
+        TestResultPtr emptySolutionResult;
         TesterList<Others...> next_;
     };
 
@@ -244,15 +261,22 @@ namespace speedtest {
         template<class Solution>
         std::deque<TestResultPtr> run() const {
             TestResultPtr ret = speedtest::run<T, Solution>(val_);
+            ret->remove_empty_solution_difference(emptySolutionResult);
             return std::deque<TestResultPtr>({ret});
         }
 
         void setup() {
             st_config.add_test(val_);
         }
+
+        template<class EmptySolution>
+        void run_empty() {
+            emptySolutionResult = speedtest::run<T, EmptySolution>(val_);
+        }
         
     private:
         T val_;
+        TestResultPtr emptySolutionResult = nullptr;
     };
 
     template<class... Types>
@@ -300,7 +324,17 @@ namespace speedtest {
     SolutionList<Types...> solutions() {
         return SolutionList<Types...>();
     }
-    
+
+    template<class EmptySolution>
+    struct EmptySolutionWrapper {
+        typedef EmptySolution wrapped;
+    };
+
+    template<class EmptySolution>
+    EmptySolutionWrapper<EmptySolution> empty_solution() {
+        return EmptySolutionWrapper<EmptySolution>();
+    }
+
     class BasicSpeedTest {
     public:
         BasicSpeedTest() {}
@@ -334,12 +368,47 @@ namespace speedtest {
         StoredSolutionList solution_list_;
     };
 
+    template<class StoredTesterList,
+            class StoredSolutionList,
+            class EmptySolution>
+    class EmptySolutionSpeedTest : public BasicSpeedTest {
+    public:
+
+        EmptySolutionSpeedTest(StoredTesterList&& tester_list,
+                               StoredSolutionList&& solution_list) : tester_list_(tester_list),
+                                                                     solution_list_(solution_list) {}
+        virtual void run() {
+            solution_list_.run(tester_list_);
+        }
+
+        virtual void setup() {
+            tester_list_.setup();
+            tester_list_.template run_empty<EmptySolution>();
+        }
+
+    private:
+        StoredTesterList tester_list_;
+        StoredSolutionList solution_list_;
+    };
+
     extern std::unique_ptr<BasicSpeedTest> st_instance;
+
 
     template<class StoredTesterList,
              class StoredSolutionList>
     void init(StoredTesterList&& tl, StoredSolutionList&& sl) {
         st_instance.reset(new SpeedTest<StoredTesterList, StoredSolutionList>(std::move(tl), std::move(sl)));
+        currentMultiparamInvocation = nullptr;
+    }
+
+    template<class StoredTesterList,
+            class StoredSolutionList,
+            class EmptySolutionWrap>
+    void init(StoredTesterList&& tl, StoredSolutionList&& sl, EmptySolutionWrap&& es) {
+        st_instance.reset(new EmptySolutionSpeedTest<StoredTesterList,
+                                                     StoredSolutionList,
+                                                     typename EmptySolutionWrap::wrapped> (std::move(tl),
+                                                                                           std::move(sl)));
         currentMultiparamInvocation = nullptr;
     }
     
