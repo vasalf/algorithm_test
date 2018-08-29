@@ -137,7 +137,7 @@ namespace speedtest {
     struct TestAssertion {
         static_assert((int)is_multitest<Tester>::value
                     + (int)is_multiparam_test<Tester>::value
-                    + (int)is_singletest<Tester>::value == 1);
+                    + (int)is_singletest<Tester>::value == 1, "Every test must have the only single type");
     };
 
     struct SpeedTestConfig {
